@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: lab5-chat
+  labels:
+    app: chat-app
+    component: backend
+spec:
+  selector:
+    app: chat-app
+    component: backend
+  ports:
+    - port: 3001
+      targetPort: 3001
+  type: ClusterIP

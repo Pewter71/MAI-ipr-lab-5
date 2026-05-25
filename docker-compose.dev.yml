@@ -1,0 +1,62 @@
+services:
+  redis:
+    ports:
+      - "6379:6379"
+    networks:
+      - backend
+      - frontend
+    command: redis-server --appendonly yes
+
+  backend:
+    build:
+      context: ./backend
+      target: development
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - REDIS_URL=redis://redis:6379
+      - CORS_ORIGIN=http://localhost:5173
+      - MAX_MESSAGES=50
+      - NODE_ENV=development
+    networks:
+      - backend
+      - frontend
+    command: npm run dev
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      target: development
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_SOCKET_URL=http://localhost:3001
+    networks:
+      - frontend
+    command: npm run dev -- --host 0.0.0.0
+    depends_on:
+      - backend
+
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: ${COMPOSE_PROJECT_NAME:-chat}-redis-commander
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    ports:
+      - "8081:8081"
+    networks:
+      - backend
+    depends_on:
+      - redis
+    profiles:
+      - tools

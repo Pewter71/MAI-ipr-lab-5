@@ -1,0 +1,70 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: ${COMPOSE_PROJECT_NAME:-chat}-redis
+    command: redis-server --appendonly yes --appendfsync everysec
+    volumes:
+      - redis_data:/data
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+      target: production
+    container_name: ${COMPOSE_PROJECT_NAME:-chat}-backend
+    environment:
+      - PORT=3001
+      - REDIS_URL=redis://redis:6379
+      - CORS_ORIGIN=http://localhost
+      - MAX_MESSAGES=50
+      - NODE_ENV=production
+    networks:
+      - backend
+      - frontend
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  frontend:
+    build:
+      context: ./frontend
+      target: production
+      args:
+        VITE_SOCKET_URL: http://localhost
+    container_name: ${COMPOSE_PROJECT_NAME:-chat}-frontend
+    ports:
+      - "80:80"
+    networks:
+      - frontend
+    depends_on:
+      - backend
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  redis_data:
+    driver: local
+
+networks:
+  backend:
+    driver: bridge
+    internal: true
+  frontend:
+    driver: bridge
